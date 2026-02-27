@@ -23,7 +23,7 @@ export async function GET() {
         // Check franchisee profile
         const { data: franchisee } = await supabase
             .from('franchisees')
-            .select('id, name, document, phone, status, price_table')
+            .select('id, name, document, phone, "zipCode", street, number, complement, neighborhood, city, state, status, price_table')
             .eq('user_id', user.id)
             .single();
 
@@ -43,6 +43,13 @@ export async function GET() {
             name: franchisee.name,
             document: franchisee.document,
             phone: franchisee.phone,
+            zipCode: franchisee.zipCode,
+            street: franchisee.street,
+            number: franchisee.number,
+            complement: franchisee.complement,
+            neighborhood: franchisee.neighborhood,
+            city: franchisee.city,
+            state: franchisee.state,
             email: user.email,
             price_table: franchisee.price_table || 1,
         });

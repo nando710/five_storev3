@@ -43,11 +43,14 @@ export async function POST(req: Request) {
             .from('products')
             .insert({
                 name: body.name,
+                custom_id: body.custom_id || null,
                 description: body.description || '',
                 price: body.price,
                 price_2: body.price_2 || 0,
                 stock: body.stock || 0,
                 image_url: body.image_url || '',
+                active_t1: body.active_t1 !== undefined ? body.active_t1 : true,
+                active_t2: body.active_t2 !== undefined ? body.active_t2 : true,
                 category_id: body.category_id || null,
                 weight: body.weight || 1,
                 length: body.length || 20,
@@ -81,11 +84,14 @@ export async function PUT(req: Request) {
             .from('products')
             .update({
                 name: body.name,
+                custom_id: body.custom_id || null,
                 description: body.description || '',
                 price: body.price,
                 price_2: body.price_2 || 0,
                 stock: body.stock,
                 image_url: body.image_url || '',
+                active_t1: body.active_t1 !== undefined ? body.active_t1 : true,
+                active_t2: body.active_t2 !== undefined ? body.active_t2 : true,
                 category_id: body.category_id || null,
                 weight: body.weight || 1,
                 length: body.length || 20,

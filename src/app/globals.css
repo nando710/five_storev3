@@ -32,14 +32,17 @@
     from {
       height: 0;
     }
+
     to {
       height: var(--radix-accordion-content-height);
     }
   }
+
   @keyframes accordion-up {
     from {
       height: var(--radix-accordion-content-height);
     }
+
     to {
       height: 0;
     }
@@ -48,48 +51,57 @@
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --foreground: #09090b;
+    --background: #fafafa;
+    --foreground: #1e293b;
     --card: #ffffff;
-    --card-foreground: #09090b;
+    --card-foreground: #0f172a;
     --popover: #ffffff;
-    --popover-foreground: #09090b;
-    --primary: #15803d; /* Green 700 - as used before in Auth styling */
+    --popover-foreground: #0f172a;
+    --primary: #a855f7;
+    /* Purple 500 */
     --primary-foreground: #ffffff;
-    --secondary: #f4f4f5;
-    --secondary-foreground: #18181b;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --accent: #f4f4f5;
-    --accent-foreground: #18181b;
+    --secondary: #e2e8f0;
+    --secondary-foreground: #0f172a;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #f3e8ff;
+    /* Purple 100 */
+    --accent-foreground: #7e22ce;
+    /* Purple 700 */
     --destructive: #ef4444;
     --destructive-foreground: #f8fafc;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
-    --ring: #15803d;
-    --radius: 0.5rem;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #a855f7;
+    --radius: 0.75rem;
+
+    /* Font definitions for Tailwind v4 */
+    --font-heading: var(--font-inter, 'Inter', sans-serif);
+    --font-body: var(--font-inter, 'Inter', sans-serif);
   }
 
   .dark {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --card: #18181b;
-    --card-foreground: #fafafa;
-    --popover: #09090b;
-    --popover-foreground: #fafafa;
-    --primary: #22c55e;
-    --primary-foreground: #09090b;
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
+    --background: #111111;
+    --foreground: #f8fafc;
+    --card: #1a1a1a;
+    --card-foreground: #f1f5f9;
+    --popover: #0f172a;
+    --popover-foreground: #f1f5f9;
+    --primary: #c084fc;
+    /* Purple 400 */
+    --primary-foreground: #0f172a;
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #3b0764;
+    /* Purple 950 */
+    --accent-foreground: #f8fafc;
     --destructive: #7f1d1d;
-    --destructive-foreground: #fafafa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #22c55e;
+    --destructive-foreground: #f8fafc;
+    --border: #1e293b;
+    --input: #1e293b;
+    --ring: #c084fc;
   }
 }
 
@@ -97,6 +109,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;

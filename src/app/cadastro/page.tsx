@@ -18,6 +18,11 @@ export default function CadastroPage() {
         password: '',
         document: '',
         phone: '',
+        zipCode: '',
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
         city: '',
         state: '',
     });
@@ -40,6 +45,11 @@ export default function CadastroPage() {
                     name: form.name,
                     document: form.document.replace(/\D/g, ''),
                     phone: form.phone.replace(/\D/g, ''),
+                    zipCode: form.zipCode.replace(/\D/g, ''),
+                    street: form.street,
+                    number: form.number,
+                    complement: form.complement,
+                    neighborhood: form.neighborhood,
                     city: form.city,
                     state: form.state,
                 },
@@ -113,6 +123,37 @@ export default function CadastroPage() {
                                 <label className="text-sm font-medium flex items-center gap-2"><Phone size={14} /> Telefone</label>
                                 <input name="phone" value={form.phone} onChange={handleChange} required className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="(00) 00000-0000" />
                             </div>
+                        </div>
+
+                        <div className="border-t border-border pt-4 mt-2 mb-2">
+                            <h3 className="text-sm font-bold font-urbanist flex items-center gap-2 mb-3 text-muted-foreground"><MapPin size={16} /> Endereço</h3>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-1 col-span-1">
+                                <label className="text-sm font-medium">CEP</label>
+                                <input name="zipCode" value={form.zipCode} onChange={handleChange} required className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="00000-000" />
+                            </div>
+                            <div className="space-y-1 col-span-2">
+                                <label className="text-sm font-medium">Rua</label>
+                                <input name="street" value={form.street} onChange={handleChange} required className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Nome da rua" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                            <div className="space-y-1 col-span-1">
+                                <label className="text-sm font-medium">Número</label>
+                                <input name="number" value={form.number} onChange={handleChange} required className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="123" />
+                            </div>
+                            <div className="space-y-1 col-span-2">
+                                <label className="text-sm font-medium">Complemento</label>
+                                <input name="complement" value={form.complement} onChange={handleChange} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Apto, Bloco..." />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1 mt-4">
+                            <label className="text-sm font-medium">Bairro</label>
+                            <input name="neighborhood" value={form.neighborhood} onChange={handleChange} required className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Bairro" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

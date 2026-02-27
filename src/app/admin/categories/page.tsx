@@ -8,6 +8,9 @@ interface Category {
     id: string;
     name: string;
     parent_id: string | null;
+    custom_id: string | null;
+    tax_percentage: number;
+    tax_name: string | null;
     created_at: string;
 }
 
@@ -18,6 +21,9 @@ export default function CategoriesPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formName, setFormName] = useState('');
     const [formParentId, setFormParentId] = useState<string | null>(null);
+    const [formCustomId, setFormCustomId] = useState('');
+    const [formTax, setFormTax] = useState(0);
+    const [formTaxName, setFormTaxName] = useState('');
     const [saving, setSaving] = useState(false);
 
     const fetchCategories = useCallback(async () => {
@@ -38,14 +44,20 @@ export default function CategoriesPage() {
     const openNew = (parentId: string | null = null) => {
         setEditingId(null);
         setFormName('');
+        setFormCustomId('');
         setFormParentId(parentId);
+        setFormTax(0);
+        setFormTaxName('');
         setShowForm(true);
     };
 
     const openEdit = (cat: Category) => {
         setEditingId(cat.id);
         setFormName(cat.name);
+        setFormCustomId(cat.custom_id || '');
         setFormParentId(cat.parent_id);
+        setFormTax(cat.tax_percentage || 0);
+        setFormTaxName(cat.tax_name || '');
         setShowForm(true);
     };
 
@@ -53,8 +65,8 @@ export default function CategoriesPage() {
         setSaving(true);
         const method = editingId ? 'PUT' : 'POST';
         const body = editingId
-            ? { id: editingId, name: formName, parent_id: formParentId }
-            : { name: formName, parent_id: formParentId };
+            ? { id: editingId, name: formName, custom_id: formCustomId, parent_id: formParentId, tax_percentage: formTax, tax_name: formTaxName }
+            : { name: formName, custom_id: formCustomId, parent_id: formParentId, tax_percentage: formTax, tax_name: formTaxName };
 
         const res = await fetch('/api/admin/categories', {
             method,
@@ -107,23 +119,42 @@ export default function CategoriesPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Nome</label>
-                                <input value={formName} onChange={e => setFormName(e.target.value)} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: Vestuário" autoFocus />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Nome da Categoria</label>
+                                    <input value={formName} onChange={e => setFormName(e.target.value)} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: Roupas" autoFocus />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium border-b border-primary/20 pb-1 flex w-fit">ID Personalizado (Opcional)</label>
+                                    <input value={formCustomId} onChange={e => setFormCustomId(e.target.value)} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: T-SHIRT-MASC" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Categoria Pai (opcional)</label>
+                                    <select
+                                        value={formParentId || ''}
+                                        onChange={e => setFormParentId(e.target.value || null)}
+                                        className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm"
+                                    >
+                                        <option value="">— Nenhuma (raiz)</option>
+                                        {parentCategories.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Categoria Pai (opcional)</label>
-                                <select
-                                    value={formParentId || ''}
-                                    onChange={e => setFormParentId(e.target.value || null)}
-                                    className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm"
-                                >
-                                    <option value="">— Nenhuma (categoria raiz)</option>
-                                    {parentCategories.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
+                            <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-4">
+                                <h3 className="text-sm font-semibold flex items-center gap-2">Configuração de Taxa <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Opcional</span></h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-muted-foreground">Nome da Taxa (Ex: ISS)</label>
+                                        <input type="text" value={formTaxName} onChange={e => setFormTaxName(e.target.value)} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Taxa de Serviço" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-medium text-muted-foreground">Valor (%)</label>
+                                        <input type="number" step="0.01" min="0" value={formTax} onChange={e => setFormTax(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="0.00" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -159,7 +190,15 @@ export default function CategoriesPage() {
                                             <FolderTree size={16} className="text-primary" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold">{cat.name}</p>
+                                            <p className="font-semibold flex items-center gap-2">
+                                                {cat.name}
+                                                {cat.custom_id && (
+                                                    <span className="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-md font-mono border border-primary/30">
+                                                        {cat.custom_id}
+                                                    </span>
+                                                )}
+                                                {cat.tax_percentage > 0 && <span className="bg-destructive/10 text-destructive text-[10px] px-2 py-0.5 rounded-full font-bold">+{cat.tax_percentage}% {cat.tax_name || 'Taxa'}</span>}
+                                            </p>
                                             <p className="text-xs text-muted-foreground">{subs.length} subcategoria(s)</p>
                                         </div>
                                     </div>
@@ -180,6 +219,12 @@ export default function CategoriesPage() {
                                                 <div className="flex items-center gap-2">
                                                     <ChevronRight size={14} className="text-muted-foreground" />
                                                     <span className="text-sm">{sub.name}</span>
+                                                    {sub.custom_id && (
+                                                        <span className="bg-muted text-foreground text-[10px] px-1.5 py-0.5 rounded-md font-mono hidden sm:inline-block border border-border">
+                                                            {sub.custom_id}
+                                                        </span>
+                                                    )}
+                                                    {sub.tax_percentage > 0 && <span className="bg-destructive/10 text-destructive text-[10px] px-2 py-0.5 rounded-full font-bold ml-2 hidden sm:inline-block">+{sub.tax_percentage}% {sub.tax_name || 'Taxa'}</span>}
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <button onClick={() => openEdit(sub)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Pencil size={14} /></button>

@@ -12,6 +12,7 @@ export interface CartItem {
     width: number;
     height: number;
     franchiseeId: string;
+    categoryId?: string;
 }
 
 interface CartStore {

@@ -17,7 +17,7 @@ interface Franchisee {
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
     pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-    approved: { label: 'Aprovado', color: 'bg-green-100 text-green-800 border-green-200' },
+    approved: { label: 'Aprovado', color: 'bg-purple-100 text-purple-800 border-purple-200' },
     rejected: { label: 'Recusado', color: 'bg-red-100 text-red-800 border-red-200' },
 };
 
@@ -124,7 +124,7 @@ export default function FranchiseesPage() {
                                                     {status !== 'approved' && (
                                                         <button
                                                             onClick={() => handleUpdate(f.id, { status: 'approved' })}
-                                                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
+                                                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
                                                         >
                                                             Aprovar
                                                         </button>

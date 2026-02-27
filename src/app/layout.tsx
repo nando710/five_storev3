@@ -1,17 +1,9 @@
 import type { Metadata } from "next";
-import { Inter, Urbanist } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
 import { CartDrawer } from "@/components/store/CartDrawer";
+import SidebarDemo from "@/components/sidebar-demo";
 
-// Using Urbanist for headings (like the Auth page restyling requested previously)
-const urbanist = Urbanist({
-  subsets: ["latin"],
-  variable: "--font-urbanist",
-  display: 'swap',
-});
-
-// Inter for body text
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -30,11 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} ${urbanist.variable} antialiased min-h-screen flex flex-col font-sans`}>
-        <Navbar />
-        <main className="flex-1 flex flex-col bg-muted/20">
+      <body className={`${inter.variable} antialiased h-screen flex flex-col font-sans bg-background`}>
+        <SidebarDemo>
           {children}
-        </main>
+        </SidebarDemo>
         <CartDrawer />
       </body>
     </html>

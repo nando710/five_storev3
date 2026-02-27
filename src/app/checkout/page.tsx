@@ -4,8 +4,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCartStore } from '@/store/cart';
-import { CreditCard, QrCode, Lock, CheckCircle2, Loader2, Copy } from 'lucide-react';
+import { CreditCard, QrCode, Lock, CheckCircle2, Loader2, Copy, Truck } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { FrenetShippingService } from '@/types/frenet';
+import { createClient } from '@/utils/supabase/client';
+
+interface Category {
+    id: string;
+    tax_percentage: number;
+    tax_name: string | null;
+}
 
 const checkoutSchema = z.object({
     name: z.string().min(3, 'Nome é obrigatório'),
@@ -40,9 +48,13 @@ export default function CheckoutPage() {
     const [paymentId, setPaymentId] = useState<string | null>(null);
     const [pixConfirmed, setPixConfirmed] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [shippingOptions, setShippingOptions] = useState<FrenetShippingService[]>([]);
+    const [selectedShipping, setSelectedShipping] = useState<FrenetShippingService | null>(null);
+    const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<CheckoutFormValues>({
+    const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<CheckoutFormValues>({
         resolver: zodResolver(checkoutSchema),
         defaultValues: {
             paymentMethod: 'PIX',
@@ -60,7 +72,13 @@ export default function CheckoutPage() {
     });
 
     useEffect(() => {
-        const fetchUserProfile = async () => {
+        const fetchUserProfileAndCategories = async () => {
+            const supabase = createClient();
+
+            // Fetch categories for tax calculation
+            const { data: cats } = await supabase.from('categories').select('id, tax_percentage, tax_name');
+            if (cats) setCategories(cats);
+
             try {
                 const res = await fetch('/api/auth/me');
                 if (res.ok) {
@@ -72,25 +90,73 @@ export default function CheckoutPage() {
                             email: data.email || '',
                             document: data.document || '',
                             phone: data.phone || '',
-                            // Leave address fields empty or fetch if you had address saved
-                            zipCode: '',
-                            street: '',
-                            number: '',
-                            neighborhood: '',
-                            city: '',
-                            state: ''
+                            zipCode: data.zipCode || '',
+                            street: data.street || '',
+                            number: data.number || '',
+                            complement: data.complement || '',
+                            neighborhood: data.neighborhood || '',
+                            city: data.city || '',
+                            state: data.state || ''
                         });
                     }
                 }
             } catch (error) {
-                console.error('Failed to fetch user profile for auto-fill:', error);
+                console.error('Failed to fetch user profile or categories:', error);
             } finally {
                 setIsLoadingProfile(false);
             }
         };
 
-        fetchUserProfile();
+        fetchUserProfileAndCategories();
     }, [reset]);
+
+    const zipCode = watch('zipCode');
+
+    // Automatically fetch shipping rates when zipcode is valid
+    useEffect(() => {
+        const fetchShipping = async () => {
+            if (!zipCode || zipCode.replace(/\D/g, '').length !== 8) {
+                setShippingOptions([]);
+                setSelectedShipping(null);
+                return;
+            }
+
+            setIsLoadingShipping(true);
+            try {
+                const invoiceValue = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+                const res = await fetch('/api/shipping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recipientCep: zipCode,
+                        items,
+                        invoiceValue
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.options) {
+                        setShippingOptions(data.options);
+                        if (data.options.length > 0) {
+                            setSelectedShipping(data.options[0]);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch shipping:', error);
+            } finally {
+                setIsLoadingShipping(false);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            fetchShipping();
+        }, 800);
+
+        return () => clearTimeout(timeoutId);
+    }, [zipCode, items]);
 
     // Poll for PIX payment confirmation
     useEffect(() => {
@@ -118,10 +184,41 @@ export default function CheckoutPage() {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
     };
 
+    const calculateTaxes = () => {
+        if (!categories.length) return [];
+
+        const taxesByName: Record<string, number> = {};
+
+        items.forEach(item => {
+            if (!item.categoryId) return;
+            const cat = categories.find(c => c.id === item.categoryId);
+            if (!cat || !cat.tax_percentage) return;
+
+            const itemTotal = item.price * item.quantity;
+            const taxAmount = itemTotal * (cat.tax_percentage / 100);
+            const rawTaxName = cat.tax_name?.trim();
+            const taxName = rawTaxName ? rawTaxName : 'Taxas de Categoria';
+
+            taxesByName[taxName] = (taxesByName[taxName] || 0) + taxAmount;
+        });
+
+        return Object.entries(taxesByName).map(([name, amount]) => ({ name, amount }));
+    };
+
+    const appliedTaxes = calculateTaxes();
+    const totalTaxAmount = appliedTaxes.reduce((sum, tax) => sum + tax.amount, 0);
+
     const onSubmit = async (data: CheckoutFormValues) => {
+        if (!selectedShipping) {
+            alert('Por favor, selecione uma opção de entrega.');
+            return;
+        }
+
         setIsProcessing(true);
         try {
-            const total = getCartTotal() + 25.50 - (data.paymentMethod === 'PIX' ? getCartTotal() * 0.05 : 0);
+            const shippingFee = parseFloat(selectedShipping.ShippingPrice);
+            const subtotal = getCartTotal();
+            const total = subtotal + totalTaxAmount + shippingFee - (data.paymentMethod === 'PIX' ? subtotal * 0.05 : 0);
 
             const response = await fetch('/api/checkout', {
                 method: 'POST',
@@ -131,6 +228,8 @@ export default function CheckoutPage() {
                     items,
                     paymentMethod: data.paymentMethod,
                     total,
+                    shippingFee,
+                    shippingMethod: selectedShipping.ServiceDescription
                 }),
             });
 
@@ -164,21 +263,21 @@ export default function CheckoutPage() {
     if (pixData && pixConfirmed) {
         return (
             <div className="container max-w-2xl px-4 py-24 mx-auto text-center">
-                <div className="flex justify-center mb-6">
+                <div className="flex justify-center mb-8">
                     <div className="relative">
-                        <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center animate-in zoom-in duration-500">
-                            <CheckCircle2 size={60} className="text-green-600" />
+                        <div className="w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center animate-in zoom-in duration-500 shadow-xl shadow-purple-500/10">
+                            <CheckCircle2 size={64} className="text-primary" />
                         </div>
-                        <div className="absolute inset-0 rounded-full bg-green-200 animate-ping opacity-20" />
+                        <div className="absolute inset-0 rounded-full bg-purple-400 animate-ping opacity-20" />
                     </div>
                 </div>
-                <h1 className="text-4xl font-urbanist font-bold mb-4 text-green-700">Pagamento Confirmado!</h1>
-                <p className="text-lg text-muted-foreground mb-8">
-                    Recebemos seu pagamento PIX com sucesso. Seu pedido está sendo processado!
+                <h1 className="text-4xl md:text-5xl font-urbanist font-black mb-4 text-primary">Pagamento Confirmado!</h1>
+                <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-lg mx-auto leading-relaxed">
+                    Recebemos seu pagamento PIX com sucesso. Seu pedido já está sendo processado pela nossa equipe! 🎉
                 </p>
                 <button
                     onClick={() => window.location.href = '/'}
-                    className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                    className="bg-primary text-primary-foreground px-10 py-4 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-primary/30 hover:bg-primary/90 transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                     Voltar para a Loja
                 </button>
@@ -263,12 +362,12 @@ export default function CheckoutPage() {
                 <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-7 space-y-8">
 
                     {/* Dados Pessoais */}
-                    <div className="bg-card p-6 md:p-8 rounded-xl border border-border/50 shadow-sm space-y-6">
-                        <h2 className="font-urbanist font-bold text-xl flex items-center gap-2">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs shrink-0">1</span>
+                    <div className="bg-white/80 dark:bg-card/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-8 transition-all hover:shadow-[0_8px_30px_rgb(168,85,247,0.06)]">
+                        <h2 className="font-urbanist font-black text-2xl flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shadow-md text-sm shrink-0">1</span>
                             Dados Pessoais
                         </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Nome Completo</label>
                                 <input {...register('name')} className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm" />
@@ -293,9 +392,9 @@ export default function CheckoutPage() {
                     </div>
 
                     {/* Endereço */}
-                    <div className="bg-card p-6 md:p-8 rounded-xl border border-border/50 shadow-sm space-y-6">
-                        <h2 className="font-urbanist font-bold text-xl flex items-center gap-2">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs shrink-0">2</span>
+                    <div className="bg-white/80 dark:bg-card/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-8 transition-all hover:shadow-[0_8px_30px_rgb(168,85,247,0.06)]">
+                        <h2 className="font-urbanist font-black text-2xl flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shadow-md text-sm shrink-0">2</span>
                             Endereço de Entrega
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -333,14 +432,71 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
+                    {/* Opções de Entrega */}
+                    <div className="bg-white/80 dark:bg-card/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-8 transition-all hover:shadow-[0_8px_30px_rgb(168,85,247,0.06)] mt-6">
+                        <h2 className="font-urbanist font-black text-2xl flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shadow-md text-sm shrink-0">3</span>
+                            Opções de Entrega
+                        </h2>
+
+                        {isLoadingShipping ? (
+                            <div className="flex items-center justify-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
+                                <Loader2 className="animate-spin text-primary h-6 w-6" />
+                                <span className="ml-3 text-muted-foreground font-medium">Calculando prazos e preços...</span>
+                            </div>
+                        ) : shippingOptions.length > 0 ? (
+                            <div className="space-y-3">
+                                {shippingOptions.map((option) => {
+                                    const isSelected = selectedShipping?.ServiceCode === option.ServiceCode;
+                                    return (
+                                        <label key={option.ServiceCode} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative flex items-center justify-center">
+                                                    <input
+                                                        type="radio"
+                                                        name="shippingOption"
+                                                        className="peer sr-only"
+                                                        checked={isSelected}
+                                                        onChange={() => setSelectedShipping(option)}
+                                                    />
+                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
+                                                        {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-background" />}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span className="font-bold text-foreground flex items-center gap-2">
+                                                        <Truck size={14} className="text-muted-foreground" />
+                                                        {option.ServiceDescription}
+                                                    </span>
+                                                    <span className="text-sm text-muted-foreground block mt-0.5">
+                                                        Receba em até <strong className="text-foreground">{option.DeliveryTime} dias úteis</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-lg text-primary">{formatPrice(parseFloat(option.ShippingPrice))}</span>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="p-6 bg-muted/30 rounded-xl text-center text-muted-foreground border border-dashed border-border flex flex-col items-center justify-center gap-2">
+                                <Truck size={32} className="text-muted-foreground/40 mb-2" />
+                                <p className="font-medium text-foreground/80">Nenhuma opção de entrega selecionada</p>
+                                <p className="text-sm">Preencha um CEP válido acima para visualizar os prazos e valores.</p>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Pagamento */}
                     <div className="bg-card p-6 md:p-8 rounded-xl border border-border/50 shadow-sm space-y-6">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="font-urbanist font-bold text-xl flex items-center gap-2">
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs shrink-0">3</span>
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs shrink-0">4</span>
                                 Pagamento
                             </h2>
-                            <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
+                            <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full border border-purple-100">
                                 <Lock size={12} /> Ambeiente Seguro
                             </div>
                         </div>
@@ -432,20 +588,39 @@ export default function CheckoutPage() {
                                 <span>Subtotal</span>
                                 <span>{formatPrice(getCartTotal())}</span>
                             </div>
-                            <div className="flex justify-between text-muted-foreground">
-                                <span>Frete Expresso</span>
-                                <span>{formatPrice(25.50)}</span>
-                            </div>
-                            {paymentMethod === 'PIX' && (
-                                <div className="flex justify-between text-green-600 font-medium">
-                                    <span>Desconto PIX (5%)</span>
-                                    <span>- {formatPrice(getCartTotal() * 0.05)}</span>
+                            {appliedTaxes.map((tax, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-muted-foreground">
+                                    <span>{tax.name}</span>
+                                    <span>{formatPrice(tax.amount)}</span>
+                                </div>
+                            ))}
+
+                            {shippingOptions.length > 0 && selectedShipping && (
+                                <div className="flex justify-between items-center text-muted-foreground">
+                                    <span className="flex flex-col">
+                                        <span>Frete</span>
+                                        {selectedShipping && <span className="text-xs">{selectedShipping.ServiceDescription}</span>}
+                                    </span>
+                                    <span>{formatPrice(parseFloat(selectedShipping.ShippingPrice))}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between items-center text-xl font-bold pt-4 border-t border-border">
-                                <span>Total a Pagar</span>
-                                <span className="text-primary">
-                                    {formatPrice(getCartTotal() + 25.50 - (paymentMethod === 'PIX' ? getCartTotal() * 0.05 : 0))}
+
+                            {paymentMethod === 'PIX' && (
+                                <div className="flex justify-between items-center text-purple-600 font-medium">
+                                    <span>Desconto PIX (5%)</span>
+                                    <span>-{formatPrice(getCartTotal() * 0.05)}</span>
+                                </div>
+                            )}
+
+                            <div className="pt-4 border-t border-border flex justify-between items-center font-bold text-xl">
+                                <span>Total</span>
+                                <span>
+                                    {formatPrice(
+                                        getCartTotal() +
+                                        totalTaxAmount +
+                                        (selectedShipping ? parseFloat(selectedShipping.ShippingPrice) : 0) -
+                                        (paymentMethod === 'PIX' ? getCartTotal() * 0.05 : 0)
+                                    )}
                                 </span>
                             </div>
                         </div>

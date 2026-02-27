@@ -12,7 +12,10 @@ interface Product {
     price_2: number;
     stock: number;
     image_url: string;
+    custom_id: string | null;
     category_id: string | null;
+    active_t1: boolean;
+    active_t2: boolean;
     weight: number;
     length: number;
     width: number;
@@ -27,8 +30,8 @@ interface Category {
 }
 
 const emptyProduct = {
-    name: '', description: '', price: 0, price_2: 0, stock: 0, image_url: '',
-    category_id: '' as string, weight: 1, length: 20, width: 20, height: 20,
+    name: '', description: '', price: 0, price_2: 0, stock: 0, image_url: '', custom_id: '',
+    category_id: '' as string, active_t1: true, active_t2: true, weight: 1, length: 20, width: 20, height: 20,
 };
 
 export default function ProductsPage() {
@@ -88,7 +91,8 @@ export default function ProductsPage() {
         setEditingId(p.id);
         setFormData({
             name: p.name, description: p.description || '', price: p.price, price_2: p.price_2 || 0, stock: p.stock,
-            image_url: p.image_url || '', category_id: p.category_id || '', weight: p.weight, length: p.length, width: p.width, height: p.height,
+            image_url: p.image_url || '', custom_id: p.custom_id || '', category_id: p.category_id || '',
+            active_t1: p.active_t1 ?? true, active_t2: p.active_t2 ?? true, weight: p.weight, length: p.length, width: p.width, height: p.height,
         });
         setShowForm(true);
     };
@@ -167,9 +171,15 @@ export default function ProductsPage() {
                         </div>
 
                         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium">Nome do Produto</label>
-                                <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: Camiseta Five Store" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Nome do Produto</label>
+                                    <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: Camiseta Five Store" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium border-b border-primary/20 pb-1 flex w-fit">ID Personalizado (SKU)</label>
+                                    <input value={formData.custom_id} onChange={e => setFormData({ ...formData, custom_id: e.target.value })} className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm" placeholder="Ex: C-5STORE-PRETA" />
+                                </div>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Descrição</label>
@@ -197,16 +207,28 @@ export default function ProductsPage() {
                             </div>
 
                             {/* Price Tables */}
-                            <div className="border border-primary/20 bg-primary/5 rounded-xl p-4 space-y-3">
-                                <p className="text-sm font-semibold text-primary">Tabelas de Preço</p>
+                            <div className="border border-primary/20 bg-primary/5 rounded-xl p-4 space-y-4">
+                                <p className="text-sm font-semibold text-primary">Tabelas de Preço & Disponibilidade</p>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium">Tabela 1 (R$)</label>
-                                        <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm" />
+                                    <div className="space-y-2">
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium">Preço Tabela 1 (R$)</label>
+                                            <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm" />
+                                        </div>
+                                        <label className="flex items-center gap-2 cursor-pointer pt-1">
+                                            <input type="checkbox" checked={formData.active_t1} onChange={e => setFormData({ ...formData, active_t1: e.target.checked })} className="rounded text-primary border-primary/30 h-4 w-4" />
+                                            <span className="text-xs font-medium text-muted-foreground">Ativo p/ Tabela 1</span>
+                                        </label>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium">Tabela 2 (R$)</label>
-                                        <input type="number" step="0.01" value={formData.price_2} onChange={e => setFormData({ ...formData, price_2: Number(e.target.value) })} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm" />
+                                    <div className="space-y-2">
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium">Preço Tabela 2 (R$)</label>
+                                            <input type="number" step="0.01" value={formData.price_2} onChange={e => setFormData({ ...formData, price_2: Number(e.target.value) })} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm" />
+                                        </div>
+                                        <label className="flex items-center gap-2 cursor-pointer pt-1">
+                                            <input type="checkbox" checked={formData.active_t2} onChange={e => setFormData({ ...formData, active_t2: e.target.checked })} className="rounded text-primary border-primary/30 h-4 w-4" />
+                                            <span className="text-xs font-medium text-muted-foreground">Ativo p/ Tabela 2</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -287,7 +309,18 @@ export default function ProductsPage() {
                                                     {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium">{p.name}</p>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="font-medium">{p.name}</p>
+                                                        {p.custom_id && (
+                                                            <span className="bg-muted text-foreground text-[10px] px-2 py-0.5 rounded-md font-mono border border-border">
+                                                                {p.custom_id}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mb-1 mt-0.5">
+                                                        {p.active_t1 !== false ? <span className="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded uppercase font-bold">T1 Ativa</span> : <span className="bg-destructive/10 text-destructive text-[9px] px-1.5 py-0.5 rounded uppercase font-bold opacity-70">T1 Inativa</span>}
+                                                        {p.active_t2 !== false ? <span className="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded uppercase font-bold">T2 Ativa</span> : <span className="bg-destructive/10 text-destructive text-[9px] px-1.5 py-0.5 rounded uppercase font-bold opacity-70">T2 Inativa</span>}
+                                                    </div>
                                                     <p className="text-xs text-muted-foreground line-clamp-1">{p.description || 'Sem descrição'}</p>
                                                 </div>
                                             </div>
@@ -298,7 +331,7 @@ export default function ProductsPage() {
                                         <td className="px-6 py-4 font-semibold text-right">{formatPrice(p.price)}</td>
                                         <td className="px-6 py-4 font-semibold text-right text-muted-foreground">{formatPrice(p.price_2 || 0)}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.stock > 0 ? 'bg-purple-100 text-purple-800' : 'bg-red-100 text-red-800'}`}>
                                                 {p.stock > 0 ? p.stock : 'Esgotado'}
                                             </span>
                                         </td>

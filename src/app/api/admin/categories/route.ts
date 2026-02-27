@@ -40,6 +40,9 @@ export async function POST(req: Request) {
             .insert({
                 name: body.name,
                 parent_id: body.parent_id || null,
+                custom_id: body.custom_id || null,
+                tax_percentage: body.tax_percentage || 0,
+                tax_name: body.tax_name || null,
             })
             .select()
             .single();
@@ -65,7 +68,13 @@ export async function PUT(req: Request) {
 
         const { data, error } = await supabase
             .from('categories')
-            .update({ name: body.name, parent_id: body.parent_id || null })
+            .update({
+                name: body.name,
+                parent_id: body.parent_id || null,
+                custom_id: body.custom_id || null,
+                tax_percentage: body.tax_percentage || 0,
+                tax_name: body.tax_name || null
+            })
             .eq('id', body.id)
             .select()
             .single();

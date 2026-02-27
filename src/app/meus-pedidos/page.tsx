@@ -35,7 +35,7 @@ const statusMap: Record<string, { label: string; color: string; icon: any; step:
     PAID: { label: 'Pagamento Confirmado', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckCircle2, step: 1 },
     CONFIRMED: { label: 'Pagamento Confirmado', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckCircle2, step: 1 },
     SHIPPED: { label: 'Em Transporte', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: Truck, step: 2 },
-    DELIVERED: { label: 'Entregue', color: 'bg-green-100 text-green-800 border-green-200', icon: Package, step: 3 },
+    DELIVERED: { label: 'Entregue', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Package, step: 3 },
     CANCELLED: { label: 'Cancelado', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle, step: -1 },
 };
 

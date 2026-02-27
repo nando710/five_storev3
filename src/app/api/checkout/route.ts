@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAsaasCustomer, createAsaasPayment, getAsaasPixQrCode } from '@/lib/asaas';
 import { createClient } from '@/utils/supabase/server';
+import { sendPaymentConfirmationWebhook } from '@/lib/webhook';
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { customer, items, paymentMethod, total } = body;
+        const { customer, items, paymentMethod, total, shippingFee, shippingMethod } = body;
 
         // 1. Create Customer in Asaas
         const asaasCustomer = await createAsaasCustomer({
@@ -88,9 +89,10 @@ export async function POST(req: Request) {
                         city: customer.city,
                         state: customer.state,
                         zipCode: customer.zipCode,
+                        shipping_method: shippingMethod,
                     },
                     total_amount: total,
-                    shipping_fee: 25.50,
+                    shipping_fee: shippingFee || 0,
                     status: paymentMethod === 'CREDIT_CARD' ? 'PAID' : 'PENDING',
                     asaas_payment_id: asaasPayment.id,
                 })
@@ -115,6 +117,11 @@ export async function POST(req: Request) {
                 if (itemsError) {
                     console.error('Error saving order items:', itemsError);
                 }
+            }
+
+            // If credit card payment is successful immediately, trigger webhook
+            if (paymentMethod === 'CREDIT_CARD' && order) {
+                sendPaymentConfirmationWebhook(order.id);
             }
         }
 

@@ -62,22 +62,22 @@ export function CategorySidebar({ activeCategory, onCategoryChange }: CategorySi
 
     return (
         <aside className="w-full lg:w-64 shrink-0">
-            <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden sticky top-24">
+            <div className="bg-white/80 dark:bg-card/80 backdrop-blur-xl rounded-3xl border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden sticky top-24 transition-all duration-300">
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-border/50 bg-muted/30">
-                    <h3 className="font-urbanist font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <FolderTree size={14} />
+                <div className="px-6 py-5 border-b border-border/40 bg-muted/20">
+                    <h3 className="font-urbanist font-extrabold text-sm uppercase tracking-widest text-muted-foreground/80 flex items-center gap-2">
+                        <FolderTree size={16} className="text-primary/70" />
                         Categorias
                     </h3>
                 </div>
 
                 {/* All Products */}
-                <div className="px-2 pt-2">
+                <div className="px-3 pt-3">
                     <button
                         onClick={() => onCategoryChange(null)}
-                        className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${!activeCategory
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-foreground hover:bg-muted'
+                        className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-300 ${!activeCategory
+                            ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30'
+                            : 'text-foreground hover:bg-muted/70 hover:backdrop-blur-sm'
                             }`}
                     >
                         Todos os Produtos
@@ -85,16 +85,16 @@ export function CategorySidebar({ activeCategory, onCategoryChange }: CategorySi
                 </div>
 
                 {/* Accordion Categories */}
-                <nav className="p-2 space-y-0.5">
+                <nav className="p-3 space-y-1">
                     {parentCategories.map(cat => {
                         const subs = getSubcategories(cat.id);
                         const isExpanded = expandedParents.has(cat.id);
                         const hasActive = isParentActive(cat.id);
 
                         return (
-                            <div key={cat.id}>
+                            <div key={cat.id} className="relative">
                                 {/* Parent Category Header */}
-                                <div className="flex items-center">
+                                <div className="flex items-center group">
                                     <button
                                         onClick={() => {
                                             onCategoryChange(cat.id);
@@ -102,11 +102,11 @@ export function CategorySidebar({ activeCategory, onCategoryChange }: CategorySi
                                                 toggleExpand(cat.id);
                                             }
                                         }}
-                                        className={`flex-1 text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${activeCategory === cat.id
-                                                ? 'bg-primary/10 text-primary'
-                                                : hasActive
-                                                    ? 'text-primary'
-                                                    : 'text-foreground hover:bg-muted'
+                                        className={`flex-1 text-left px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-300 ${activeCategory === cat.id
+                                            ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30'
+                                            : hasActive
+                                                ? 'text-primary bg-primary/10'
+                                                : 'text-foreground/80 hover:bg-muted/70 hover:text-foreground'
                                             }`}
                                     >
                                         {cat.name}
@@ -115,11 +115,11 @@ export function CategorySidebar({ activeCategory, onCategoryChange }: CategorySi
                                     {subs.length > 0 && (
                                         <button
                                             onClick={() => toggleExpand(cat.id)}
-                                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                            className="absolute right-2 p-2 rounded-xl text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors z-10"
                                         >
                                             <ChevronDown
-                                                size={14}
-                                                className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                                size={16}
+                                                className={`transition-transform duration-300 ease-out ${isExpanded ? 'rotate-180 text-primary' : ''}`}
                                             />
                                         </button>
                                     )}
@@ -128,19 +128,22 @@ export function CategorySidebar({ activeCategory, onCategoryChange }: CategorySi
                                 {/* Subcategories (Accordion Content) */}
                                 {subs.length > 0 && (
                                     <div
-                                        className={`overflow-hidden transition-all duration-200 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                        className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'
                                             }`}
                                     >
-                                        <div className="ml-4 pl-3 border-l-2 border-border/50 space-y-0.5 py-1">
+                                        <div className="ml-5 pl-4 border-l-2 border-primary/20 space-y-1 py-2">
                                             {subs.map(sub => (
                                                 <button
                                                     key={sub.id}
                                                     onClick={() => onCategoryChange(sub.id)}
-                                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${activeCategory === sub.id
-                                                            ? 'bg-primary/10 text-primary font-medium'
-                                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all duration-300 relative ${activeCategory === sub.id
+                                                        ? 'text-primary font-bold bg-primary/5'
+                                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                                         }`}
                                                 >
+                                                    {activeCategory === sub.id && (
+                                                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary -ml-5" />
+                                                    )}
                                                     {sub.name}
                                                 </button>
                                             ))}
