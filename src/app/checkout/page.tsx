@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCartStore } from '@/store/cart';
-import { CreditCard, QrCode, Lock, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { CreditCard, QrCode, Lock, CheckCircle2, Loader2, Copy } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 
 const checkoutSchema = z.object({
     name: z.string().min(3, 'Nome é obrigatório'),
@@ -31,18 +31,88 @@ const checkoutSchema = z.object({
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 export default function CheckoutPage() {
-    const { items, getCartTotal } = useCartStore();
+    const { items, getCartTotal, clearCart } = useCartStore();
     const [paymentMethod, setPaymentMethod] = useState<'CREDIT_CARD' | 'PIX'>('CREDIT_CARD');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
     const [orderComplete, setOrderComplete] = useState(false);
     const [pixData, setPixData] = useState<{ encodedImage: string, payload: string } | null>(null);
+    const [paymentId, setPaymentId] = useState<string | null>(null);
+    const [pixConfirmed, setPixConfirmed] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { register, handleSubmit, formState: { errors } } = useForm<CheckoutFormValues>({
+    const { register, handleSubmit, formState: { errors }, reset } = useForm<CheckoutFormValues>({
         resolver: zodResolver(checkoutSchema),
         defaultValues: {
-            paymentMethod: 'CREDIT_CARD',
+            paymentMethod: 'PIX',
+            document: '',
+            name: '',
+            email: '',
+            phone: '',
+            zipCode: '',
+            street: '',
+            number: '',
+            neighborhood: '',
+            city: '',
+            state: ''
         }
     });
+
+    useEffect(() => {
+        const fetchUserProfile = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.authenticated && data.role === 'franchisee') {
+                        reset({
+                            paymentMethod: 'PIX',
+                            name: data.name || '',
+                            email: data.email || '',
+                            document: data.document || '',
+                            phone: data.phone || '',
+                            // Leave address fields empty or fetch if you had address saved
+                            zipCode: '',
+                            street: '',
+                            number: '',
+                            neighborhood: '',
+                            city: '',
+                            state: ''
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch user profile for auto-fill:', error);
+            } finally {
+                setIsLoadingProfile(false);
+            }
+        };
+
+        fetchUserProfile();
+    }, [reset]);
+
+    // Poll for PIX payment confirmation
+    useEffect(() => {
+        if (!paymentId || pixConfirmed) return;
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/payment-status?id=${paymentId}`);
+                const data = await res.json();
+                if (data.isPaid) {
+                    setPixConfirmed(true);
+                    if (pollingRef.current) clearInterval(pollingRef.current);
+                }
+            } catch (err) {
+                console.error('Error polling payment status:', err);
+            }
+        }, 5000); // Check every 5 seconds
+
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, [paymentId, pixConfirmed]);
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
@@ -67,8 +137,12 @@ export default function CheckoutPage() {
             const result = await response.json();
 
             if (result.success) {
+                // Clear the cart immediately so the user can't double-submit
+                clearCart();
+
                 if (data.paymentMethod === 'PIX' && result.pixQrCode) {
                     setPixData(result.pixQrCode);
+                    setPaymentId(result.paymentId);
                 } else {
                     setOrderComplete(true);
                 }
@@ -87,33 +161,67 @@ export default function CheckoutPage() {
         return <div className="p-12 text-center text-xl">Carrinho vazio!</div>;
     }
 
+    if (pixData && pixConfirmed) {
+        return (
+            <div className="container max-w-2xl px-4 py-24 mx-auto text-center">
+                <div className="flex justify-center mb-6">
+                    <div className="relative">
+                        <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center animate-in zoom-in duration-500">
+                            <CheckCircle2 size={60} className="text-green-600" />
+                        </div>
+                        <div className="absolute inset-0 rounded-full bg-green-200 animate-ping opacity-20" />
+                    </div>
+                </div>
+                <h1 className="text-4xl font-urbanist font-bold mb-4 text-green-700">Pagamento Confirmado!</h1>
+                <p className="text-lg text-muted-foreground mb-8">
+                    Recebemos seu pagamento PIX com sucesso. Seu pedido está sendo processado!
+                </p>
+                <button
+                    onClick={() => window.location.href = '/'}
+                    className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                >
+                    Voltar para a Loja
+                </button>
+            </div>
+        );
+    }
+
     if (pixData) {
         return (
             <div className="container max-w-2xl px-4 py-16 mx-auto text-center">
-                <h1 className="text-4xl font-urbanist font-bold mb-4">Pagamento via PIX</h1>
-                <p className="text-muted-foreground mb-8">Escaneie o QR Code abaixo no aplicativo do seu banco para finalizar a compra.</p>
+                <h1 className="text-4xl font-urbanist font-bold mb-2">Pagamento via PIX</h1>
+                <p className="text-muted-foreground mb-8">Escaneie o QR Code abaixo no aplicativo do seu banco.</p>
+
                 <div className="flex justify-center mb-6">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`data:image/png;base64,${pixData.encodedImage}`} alt="QR Code PIX" className="w-64 h-64 border rounded-xl shadow-sm" />
+                    <img src={`data:image/png;base64,${pixData.encodedImage}`} alt="QR Code PIX" className="w-64 h-64 border-2 border-primary/20 rounded-2xl shadow-lg" />
                 </div>
-                <div className="bg-muted p-4 rounded-md mb-8 overflow-hidden">
-                    <p className="text-xs break-all text-muted-foreground select-all">{pixData.payload}</p>
+
+                <div className="bg-muted p-4 rounded-xl mb-6 overflow-hidden border border-border">
+                    <p className="text-xs break-all text-muted-foreground select-all font-mono">{pixData.payload}</p>
                 </div>
+
                 <button
                     onClick={() => {
                         navigator.clipboard.writeText(pixData.payload);
-                        alert('Código PIX Copiado!');
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 3000);
                     }}
-                    className="bg-secondary text-secondary-foreground px-8 py-3 rounded-md font-semibold hover:bg-secondary/80 transition-colors mb-4 w-full"
+                    className="bg-secondary text-secondary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-secondary/80 transition-colors mb-4 w-full flex items-center justify-center gap-2"
                 >
-                    Copiar Código PIX (Copia e Cola)
+                    <Copy size={16} />
+                    {copied ? 'Copiado! ✓' : 'Copiar Código PIX (Copia e Cola)'}
                 </button>
-                <button
-                    onClick={() => window.location.href = '/'}
-                    className="bg-primary text-primary-foreground px-8 py-3 rounded-md font-semibold hover:bg-primary/90 transition-colors w-full"
-                >
-                    Finalizar e Voltar para Home
-                </button>
+
+                {/* Polling indicator */}
+                <div className="mt-8 flex items-center justify-center gap-3 text-sm text-muted-foreground bg-muted/50 border border-border rounded-xl py-4 px-6">
+                    <Loader2 size={18} className="animate-spin text-primary" />
+                    <span>Aguardando confirmação do pagamento...</span>
+                </div>
+
+                <p className="text-xs text-muted-foreground mt-4">
+                    A confirmação aparecerá automaticamente assim que o pagamento for detectado.
+                </p>
             </div>
         );
     }
@@ -134,6 +242,15 @@ export default function CheckoutPage() {
                 >
                     Voltar para Home
                 </button>
+            </div>
+        );
+    }
+
+    if (isLoadingProfile) {
+        return (
+            <div className="container px-4 py-32 mx-auto flex flex-col items-center justify-center gap-4">
+                <Loader2 size={48} className="animate-spin text-primary" />
+                <p className="text-muted-foreground">Carregando seus dados...</p>
             </div>
         );
     }

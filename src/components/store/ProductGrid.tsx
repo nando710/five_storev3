@@ -1,81 +1,176 @@
 'use client';
 
 import Image from 'next/image';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Lock, Loader2, PackageX } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import Link from 'next/link';
 
-// Temporary Mock Data strictly for aesthetic testing until Supabase DB works
-const DUMMY_PRODUCTS = [
-    {
-        id: 'prod-1',
-        franchiseeId: 'fran-1',
-        name: 'Camiseta Básica Five - Preto',
-        description: 'Camiseta 100% algodão, confortável e com caimento perfeito.',
-        price: 89.90,
-        imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=800&h=800', // Unsplash T-shirt
-        weight: 0.3, length: 25, width: 20, height: 5,
-    },
-    {
-        id: 'prod-2',
-        franchiseeId: 'fran-1',
-        name: 'Caneca Térmica Exclusiva',
-        description: 'Mantenha seu café quente por até 4 horas com design elegante.',
-        price: 129.90,
-        imageUrl: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&q=80&w=800&h=800', // Unsplash Mug
-        weight: 0.5, length: 15, width: 10, height: 10,
-    },
-    {
-        id: 'prod-3',
-        franchiseeId: 'fran-1',
-        name: 'Ecobag Five Store',
-        description: 'Sustentável, resistente e ideal para o dia a dia.',
-        price: 49.90,
-        imageUrl: 'https://images.unsplash.com/photo-1597348989645-46b190ce4918?auto=format&fit=crop&q=80&w=800&h=800', // Unsplash Tote bag
-        weight: 0.2, length: 35, width: 35, height: 2,
-    },
-    {
-        id: 'prod-4',
-        franchiseeId: 'fran-2',
-        name: 'Moletom Premium - Cinza',
-        description: 'Para os dias frios, o máximo de conforto.',
-        price: 249.90,
-        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=800&h=800', // Unsplash Hoodie
-        weight: 0.8, length: 30, width: 25, height: 10,
-    }
-];
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    price_2: number;
+    stock: number;
+    image_url: string;
+    category_id: string | null;
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+}
 
-export function ProductGrid() {
+interface Category {
+    id: string;
+    name: string;
+    parent_id: string | null;
+}
+
+interface ProductGridProps {
+    activeCategory: string | null;
+}
+
+export function ProductGrid({ activeCategory }: ProductGridProps) {
     const addItem = useCartStore((state) => state.addItem);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [isApproved, setIsApproved] = useState(false);
+    const [priceTable, setPriceTable] = useState(1);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [loadingProducts, setLoadingProducts] = useState(true);
 
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
+    useEffect(() => {
+        const supabase = createClient();
+
+        const fetchProducts = async () => {
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (!error && data) setProducts(data);
+            setLoadingProducts(false);
+        };
+
+        const fetchCategories = async () => {
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*')
+                .order('name', { ascending: true });
+            if (!error && data) setCategories(data);
+        };
+
+        const checkAuth = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data.authenticated && (data.role === 'admin' || (data.role === 'franchisee' && data.status === 'approved'))) {
+                    setIsApproved(true);
+                    setPriceTable(data.price_table || 1);
+                }
+            } catch { /* not logged in */ }
+            setAuthChecked(true);
+        };
+
+        fetchProducts();
+        fetchCategories();
+        checkAuth();
+    }, []);
+
+    const formatPrice = (price: number) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
+
+    const getPrice = (product: Product) =>
+        priceTable === 2 ? (product.price_2 || product.price) : product.price;
+
+    const getSubcategories = (parentId: string) => categories.filter(c => c.parent_id === parentId);
+
+    // Filter products by active category (including subcategories of a parent)
+    const getFilteredProducts = () => {
+        if (!activeCategory) return products;
+        const cat = categories.find(c => c.id === activeCategory);
+        if (!cat) return products;
+        if (!cat.parent_id) {
+            const subIds = getSubcategories(cat.id).map(s => s.id);
+            const allIds = [cat.id, ...subIds];
+            return products.filter(p => p.category_id && allIds.includes(p.category_id));
+        }
+        return products.filter(p => p.category_id === activeCategory);
     };
 
+    const filteredProducts = getFilteredProducts();
+
+    if (loadingProducts) {
+        return (
+            <div className="flex justify-center py-20 w-full">
+                <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+        );
+    }
+
+    if (products.length === 0) {
+        return (
+            <div className="text-center py-20 w-full">
+                <PackageX size={48} className="mx-auto text-muted-foreground mb-4" />
+                <h3 className="font-urbanist font-bold text-xl mb-2">Nenhum produto disponível</h3>
+                <p className="text-muted-foreground text-sm">Novos produtos serão adicionados em breve.</p>
+            </div>
+        );
+    }
+
+    if (filteredProducts.length === 0) {
+        return (
+            <div className="text-center py-16 w-full">
+                <PackageX size={40} className="mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">Nenhum produto nesta categoria.</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {DUMMY_PRODUCTS.map((product) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
+            {filteredProducts.map((product) => (
                 <div
                     key={product.id}
                     className="group relative flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm border border-border/50 transition-all hover:shadow-lg hover:-translate-y-1"
                 >
                     <div className="relative aspect-square overflow-hidden bg-muted">
-                        {/* Using Next Image with unoptimized for external Unsplash URLs without configuring domains in next.config */}
-                        <Image
-                            src={product.imageUrl}
-                            alt={product.name}
-                            fill
-                            unoptimized
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
+                        {product.image_url ? (
+                            <Image
+                                src={product.image_url}
+                                alt={product.name}
+                                fill
+                                unoptimized
+                                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                <PackageX size={48} />
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-black/5 opacity-0 transition-opacity group-hover:opacity-100" />
 
-                        <button
-                            onClick={() => addItem({ ...product, quantity: 1, franchiseeId: product.franchiseeId })}
-                            className="absolute bottom-4 right-4 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:scale-105 active:scale-95"
-                            aria-label="Adicionar ao carrinho"
-                        >
-                            <ShoppingCart className="h-5 w-5" />
-                        </button>
+                        {isApproved && (
+                            <button
+                                onClick={() => addItem({
+                                    id: product.id,
+                                    name: product.name,
+                                    price: getPrice(product),
+                                    imageUrl: product.image_url,
+                                    weight: product.weight,
+                                    length: product.length,
+                                    width: product.width,
+                                    height: product.height,
+                                    quantity: 1,
+                                    franchiseeId: '',
+                                })}
+                                className="absolute bottom-4 right-4 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:scale-105 active:scale-95"
+                                aria-label="Adicionar ao carrinho"
+                            >
+                                <ShoppingCart className="h-5 w-5" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex flex-1 flex-col p-5">
@@ -86,9 +181,18 @@ export function ProductGrid() {
                             {product.description}
                         </p>
                         <div className="flex items-end justify-between mt-auto">
-                            <span className="font-bold text-xl text-primary">
-                                {formatPrice(product.price)}
-                            </span>
+                            {authChecked && isApproved ? (
+                                <span className="font-bold text-xl text-primary">
+                                    {formatPrice(getPrice(product))}
+                                </span>
+                            ) : authChecked ? (
+                                <Link href="/login" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+                                    <Lock size={14} />
+                                    <span className="font-medium">Faça login para ver o preço</span>
+                                </Link>
+                            ) : (
+                                <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+                            )}
                         </div>
                     </div>
                 </div>

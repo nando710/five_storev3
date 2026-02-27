@@ -16,17 +16,22 @@ export interface CartItem {
 
 interface CartStore {
     items: CartItem[];
+    isOpen: boolean;
     addItem: (item: CartItem) => void;
     removeItem: (id: string) => void;
     updateQuantity: (id: string, quantity: number) => void;
     clearCart: () => void;
     getCartTotal: () => number;
+    openCart: () => void;
+    closeCart: () => void;
+    toggleCart: () => void;
 }
 
 export const useCartStore = create<CartStore>()(
     persist(
         (set, get) => ({
             items: [],
+            isOpen: false,
 
             addItem: (item) => {
                 set((state) => {
@@ -36,9 +41,10 @@ export const useCartStore = create<CartStore>()(
                             items: state.items.map((i) =>
                                 i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
                             ),
+                            isOpen: true,
                         };
                     }
-                    return { items: [...state.items, { ...item, quantity: 1 }] };
+                    return { items: [...state.items, { ...item, quantity: 1 }], isOpen: true };
                 });
             },
 
@@ -61,9 +67,14 @@ export const useCartStore = create<CartStore>()(
             getCartTotal: () => {
                 return get().items.reduce((total, item) => total + (item.price * item.quantity), 0);
             },
+
+            openCart: () => set({ isOpen: true }),
+            closeCart: () => set({ isOpen: false }),
+            toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
         }),
         {
-            name: 'five-store-cart', // name of the item in the storage (must be unique)
+            name: 'five-store-cart',
+            partialize: (state) => ({ items: state.items }), // Don't persist isOpen
         }
     )
 );

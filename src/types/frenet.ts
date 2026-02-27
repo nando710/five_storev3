@@ -5,6 +5,7 @@ export interface FrenetItem {
     Length: number; // in cm
     Height: number; // in cm
     Width: number; // in cm
+    Quantity?: number;
     Diameter?: number;
     SKU?: string;
     Category?: string;

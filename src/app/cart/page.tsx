@@ -20,35 +20,41 @@ export default function CartPage() {
     const handleCalculateShipping = async () => {
         if (cep.length < 8) return;
         setIsLoadingShipping(true);
-        // In a real scenario, this would call our Next.js API Route which then calls the Frenet API
-        // DUMMY DELAY FOR UI TESTING
-        setTimeout(() => {
-            setShippingOptions([
-                {
-                    ServiceCode: 'PAC',
-                    ServiceDescription: 'Correios PAC',
-                    Carrier: 'Correios',
-                    CarrierCode: '1',
-                    ShippingPrice: '25.50',
-                    DeliveryTime: '5',
-                    Error: false,
-                    OriginalDeliveryTime: '5',
-                    OriginalShippingPrice: '25.50',
+        setShippingOptions(null);
+
+        try {
+            const response = await fetch('/api/shipping', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                {
-                    ServiceCode: 'SEDEX',
-                    ServiceDescription: 'Correios SEDEX',
-                    Carrier: 'Correios',
-                    CarrierCode: '2',
-                    ShippingPrice: '45.90',
-                    DeliveryTime: '2',
-                    Error: false,
-                    OriginalDeliveryTime: '2',
-                    OriginalShippingPrice: '45.90',
-                }
-            ]);
+                body: JSON.stringify({
+                    recipientCep: cep,
+                    items: items,
+                    invoiceValue: getCartTotal(),
+                }),
+            });
+
+            if (!response.ok) {
+                console.error('Failed to calculate shipping');
+                setShippingOptions([]);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.success && data.options) {
+                // Sort by price ascending
+                const sortedOptions = data.options.sort((a: FrenetShippingService, b: FrenetShippingService) => Number(a.ShippingPrice) - Number(b.ShippingPrice));
+                setShippingOptions(sortedOptions);
+            } else {
+                setShippingOptions([]);
+            }
+        } catch (error) {
+            console.error('Error calling shipping API', error);
+            setShippingOptions([]);
+        } finally {
             setIsLoadingShipping(false);
-        }, 1000);
+        }
     };
 
     if (items.length === 0) {

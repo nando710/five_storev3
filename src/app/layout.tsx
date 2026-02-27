@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Urbanist } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
+import { CartDrawer } from "@/components/store/CartDrawer";
 
 // Using Urbanist for headings (like the Auth page restyling requested previously)
 const urbanist = Urbanist({
@@ -34,6 +35,7 @@ export default function RootLayout({
         <main className="flex-1 flex flex-col bg-muted/20">
           {children}
         </main>
+        <CartDrawer />
       </body>
     </html>
   );
