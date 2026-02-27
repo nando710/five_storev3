@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createContaAzulProduct, updateContaAzulProduct } from '@/lib/contaazul';
 
 async function isAdmin(supabase: any) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -39,11 +40,25 @@ export async function POST(req: Request) {
 
         const body = await req.json();
 
+        // 1. Try to create in Conta Azul First
+        let contaAzulId = body.custom_id || null;
+        try {
+            console.log("Syncing new product to Conta Azul...");
+            const caProduct = await createContaAzulProduct(body);
+            if (caProduct && caProduct.id) {
+                contaAzulId = String(caProduct.id);
+                console.log(`Product synced. Conta Azul ID: ${contaAzulId}`);
+            }
+        } catch (caErr) {
+            console.error("Non-fatal error syncing to Conta Azul:", caErr);
+        }
+
+        // 2. Create in Local DB
         const { data, error } = await supabase
             .from('products')
             .insert({
                 name: body.name,
-                custom_id: body.custom_id || null,
+                custom_id: contaAzulId,
                 description: body.description || '',
                 price: body.price,
                 price_2: body.price_2 || 0,
@@ -80,6 +95,17 @@ export async function PUT(req: Request) {
 
         const body = await req.json();
 
+        // 1. Sync Update to Conta Azul
+        if (body.custom_id) {
+            try {
+                console.log(`Updating product ${body.custom_id} in Conta Azul...`);
+                await updateContaAzulProduct(body.custom_id, body);
+            } catch (caErr) {
+                console.error("Non-fatal error updating in Conta Azul:", caErr);
+            }
+        }
+
+        // 2. Update Local DB
         const { data, error } = await supabase
             .from('products')
             .update({

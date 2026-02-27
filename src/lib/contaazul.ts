@@ -91,6 +91,7 @@ export async function createContaAzulSale(orderId: string, orderData: any) {
         services: [],
         products: orderData.items?.map((item: any) => ({
             description: "Produto Loja",
+            product_id: item.product_custom_id ? item.product_custom_id : undefined,
             quantity: item.quantity,
             value: item.price
         })) || [],
@@ -124,5 +125,73 @@ export async function createContaAzulSale(orderId: string, orderData: any) {
     } catch (error) {
         console.error('Error dispatching sale to Conta Azul:', error);
         return null;
+    }
+}
+
+export async function createContaAzulProduct(productData: any) {
+    const token = await getContaAzulToken();
+    if (!token) return null;
+
+    const payload = {
+        name: productData.name,
+        value: productData.price,
+        cost: productData.price_2 || 0,
+        available_stock: productData.stock || 0
+    };
+
+    try {
+        const response = await fetch('https://api.contaazul.com/v1/products', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Failed to create product in Conta Azul:', errorData);
+            return null;
+        }
+
+        const data = await response.json();
+        return data; // returns the Conta Azul product including its `id`
+    } catch (e) {
+        console.error('Error creating CA product:', e);
+        return null;
+    }
+}
+
+export async function updateContaAzulProduct(caProductId: string, productData: any) {
+    const token = await getContaAzulToken();
+    if (!token) return null;
+
+    const payload = {
+        name: productData.name,
+        value: productData.price,
+        cost: productData.price_2 || 0,
+        available_stock: productData.stock || 0
+    };
+
+    try {
+        const response = await fetch(`https://api.contaazul.com/v1/products/${caProductId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            console.error('Failed to update product in Conta Azul');
+            return false;
+        }
+
+        return true;
+    } catch (e) {
+        console.error('Error updating CA product:', e);
+        return false;
     }
 }
